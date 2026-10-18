@@ -1,0 +1,26 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.tunetech.drumsep'
+    compileSdk 34
+    defaultConfig {
+        applicationId "com.tunetech.drumsep"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
+        // Where the converted DrumSep model is downloaded from (GitHub release "models" of this repo)
+        buildConfigField "String", "MODELS_BASE", "\"" + (project.findProperty("modelsBase") ?: "https://github.com/kebedesurafel87-afk/drumsep-android/releases/download/models") + "\""
+    }
+    buildFeatures { buildConfig true }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.debug }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    packagingOptions { jniLibs { useLegacyPackaging = false } }
+}
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.19.2'
+}

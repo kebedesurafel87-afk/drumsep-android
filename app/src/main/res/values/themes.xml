@@ -1,0 +1,12 @@
+<resources>
+    <style name="Theme.DrumSep" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#F5A524</item>
+        <item name="colorOnPrimary">#1A1200</item>
+        <item name="colorSecondary">#3ECF8E</item>
+        <item name="android:colorBackground">#111318</item>
+        <item name="colorSurface">#1B1F27</item>
+        <item name="colorOnSurface">#EEF1F6</item>
+        <item name="android:statusBarColor">#111318</item>
+        <item name="android:navigationBarColor">#111318</item>
+    </style>
+</resources>

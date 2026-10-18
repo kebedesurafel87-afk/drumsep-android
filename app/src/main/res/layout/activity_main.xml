@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/bg" android:fillViewport="true">
+<LinearLayout
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:padding="16dp">
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="🥁 DrumSep" android:textSize="24sp" android:textStyle="bold" android:textColor="@color/text"/>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Separates a song into kick, snare, hi-hat, toms, cymbal and crash — on this phone, no internet needed after setup."
+        android:textColor="@color/muted" android:textSize="14sp" android:layout_marginBottom="14dp"/>
+
+    <!-- models -->
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:background="@drawable/card_bg" android:padding="14dp" android:layout_marginBottom="12dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="AI models (one-time download, 440 MB)" android:textColor="@color/text" android:textStyle="bold"/>
+        <TextView android:id="@+id/modelStatus" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="@color/muted" android:textSize="13sp" android:layout_marginTop="4dp"/>
+        <Button android:id="@+id/btnDownload" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Download models" android:layout_marginTop="8dp"/>
+    </LinearLayout>
+
+    <!-- song -->
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:background="@drawable/card_bg" android:padding="14dp" android:layout_marginBottom="12dp">
+        <Button android:id="@+id/btnPick" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Choose a song"/>
+        <TextView android:id="@+id/songName" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="No song chosen" android:textColor="@color/muted" android:textSize="13sp" android:layout_marginTop="6dp"/>
+        <RadioGroup android:id="@+id/quality" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginTop="8dp">
+            <RadioButton android:id="@+id/qFast" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="Fast" android:checked="true" android:textColor="@color/text"/>
+            <RadioButton android:id="@+id/qBest" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="Best (2× slower)" android:textColor="@color/text"/>
+        </RadioGroup>
+        <CheckBox android:id="@+id/drumsOnly" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="The file is already a drum track (skip stage 1)" android:textColor="@color/muted" android:textSize="13sp"/>
+        <Button android:id="@+id/btnStart" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Separate drum parts" android:layout_marginTop="8dp" android:enabled="false"/>
+    </LinearLayout>
+
+    <!-- progress -->
+    <LinearLayout android:id="@+id/progressCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:background="@drawable/card_bg" android:padding="14dp" android:layout_marginBottom="12dp" android:visibility="gone">
+        <ProgressBar android:id="@+id/bar" style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:max="100"/>
+        <TextView android:id="@+id/stepText" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="@color/muted" android:textSize="13sp" android:layout_marginTop="6dp"/>
+        <TextView android:id="@+id/etaText" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="@color/muted" android:textSize="13sp"/>
+        <Button android:id="@+id/btnCancel" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Cancel" android:layout_marginTop="8dp" style="?attr/materialButtonOutlinedStyle"/>
+    </LinearLayout>
+
+    <!-- results -->
+    <LinearLayout android:id="@+id/resultCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:background="@drawable/card_bg" android:padding="14dp" android:visibility="gone">
+        <TextView android:id="@+id/resultTitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="@color/ok" android:textStyle="bold"/>
+        <LinearLayout android:id="@+id/stemList" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:layout_marginTop="6dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Rim shots are inside the snare file. Conga / other percussion is not split further."
+            android:textColor="@color/muted" android:textSize="12sp" android:layout_marginTop="8dp"/>
+    </LinearLayout>
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="A 4-minute song takes about 5–15 minutes depending on the phone. You can leave the app; it keeps working in the background."
+        android:textColor="@color/muted" android:textSize="12sp" android:layout_marginTop="14dp"/>
+</LinearLayout>
+</ScrollView>

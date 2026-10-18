@@ -1,0 +1,58 @@
+name: Build DrumSep
+on:
+  push: { branches: [ main ] }
+  workflow_dispatch: {}
+permissions: { contents: write }
+
+jobs:
+  models:
+    name: Convert DrumSep model to ONNX (once)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check if model release already exists
+        id: chk
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          if gh release view models --json assets -q '.assets[].name' 2>/dev/null | grep -q '^drumsep_mdx23c.onnx$'; then
+            echo "have=true" >> $GITHUB_OUTPUT; else echo "have=false" >> $GITHUB_OUTPUT; fi
+      - uses: actions/setup-python@v5
+        if: steps.chk.outputs.have == 'false'
+        with: { python-version: '3.11' }
+      - name: Convert
+        if: steps.chk.outputs.have == 'false'
+        run: |
+          pip install --quiet torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet onnx onnxruntime ml_collections pyyaml numpy
+          P=https://github.com/nomadkaraoke/python-audio-separator/releases/download/model-configs
+          curl -sSL -o drumsep.ckpt $P/MDX23C-DrumSep-aufr33-jarredou.ckpt
+          curl -sSL -o drumsep.yaml $P/config_drumsep_mdx23c.yaml
+          python tools/export_drumsep.py drumsep.ckpt drumsep.yaml drumsep_mdx23c.onnx
+      - name: Publish model release
+        if: steps.chk.outputs.have == 'false'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release create models --title "AI models" --notes "Converted DrumSep model used by the app" drumsep_mdx23c.onnx \
+            || gh release upload models drumsep_mdx23c.onnx --clobber
+
+  apk:
+    name: Build APK
+    needs: models
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon -PmodelsBase=https://github.com/${{ github.repository }}/releases/download/models
+          cp app/build/outputs/apk/release/app-release.apk DrumSep.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: DrumSep-apk, path: DrumSep.apk }
+      - name: Publish APK release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release create apk --title "DrumSep APK" --notes "Install this on your Android phone" DrumSep.apk \
+            || gh release upload apk DrumSep.apk --clobber
