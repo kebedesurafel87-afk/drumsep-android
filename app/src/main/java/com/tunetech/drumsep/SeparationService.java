@@ -98,8 +98,9 @@ public final class SeparationService extends Service {
                 st.percent = (int) (f * 100); return !st.cancelRequested;
             });
             long frames = mix.frames();
+            // Cool / Normal: only the fast cores (slow cores make the whole job slower, not faster); Max: all cores
             int cores = Runtime.getRuntime().availableProcessors();
-            int threads = speedMode == 0 ? Math.min(2, cores) : speedMode == 1 ? Math.max(2, Math.min(4, cores)) : Math.max(2, cores);
+            int threads = speedMode == 2 ? Math.max(2, cores) : bigCores();
 
             // 3. stage 1
             FloatTrack drums;
@@ -186,25 +187,47 @@ public final class SeparationService extends Service {
     }
 
     /**
-     * Heat control. Reads the phone's thermal status (Android 10+) and pauses while it is
-     * SEVERE or worse (MODERATE or worse in cool mode). In cool mode it also rests a little
-     * after every chunk so the CPU never runs flat-out.
+     * Heat control. Reads the phone's thermal status (Android 10+).
+     *  - Cool / Normal: pause while the phone is SEVERE or worse; Max: only when CRITICAL.
+     *  - A pause never lasts more than 30 s at a time: after that we continue slowly
+     *    (1.5 s rest per chunk) so the job always finishes.
+     *  - Cool mode additionally rests 250 ms after every chunk.
      */
+    private long pausedTotalMs = 0;
     private void throttle(JobState st, String what) {
         try {
-            if (speedMode == 0) Thread.sleep(400);
+            if (speedMode == 0) Thread.sleep(250);
             if (Build.VERSION.SDK_INT < 29) return;
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-            int limit = speedMode == 0 ? PowerManager.THERMAL_STATUS_MODERATE : PowerManager.THERMAL_STATUS_SEVERE;
-            if (speedMode == 2) limit = PowerManager.THERMAL_STATUS_CRITICAL;
-            boolean paused = false;
-            while (pm.getCurrentThermalStatus() >= limit && !st.cancelRequested) {
-                if (!paused) { paused = true; st.detail = "Phone is hot — pausing to cool down…"; notify(st.detail, st.percent); }
-                Thread.sleep(5000);
+            int limit = speedMode == 2 ? PowerManager.THERMAL_STATUS_CRITICAL : PowerManager.THERMAL_STATUS_SEVERE;
+            if (pm.getCurrentThermalStatus() < limit) return;
+            long start = System.currentTimeMillis();
+            st.detail = "Phone is hot — short pause to cool down…"; notify(st.detail, st.percent);
+            while (pm.getCurrentThermalStatus() >= limit && !st.cancelRequested
+                    && System.currentTimeMillis() - start < 30_000) {
+                Thread.sleep(3000);
             }
-            if (paused) st.detail = what;
+            pausedTotalMs += System.currentTimeMillis() - start;
+            if (pm.getCurrentThermalStatus() >= limit) Thread.sleep(1500);   // still hot: continue slowly
+            st.detail = what;
         } catch (InterruptedException ignored) {
         } catch (Exception ignored) {}
+    }
+
+    /** Number of "big" CPU cores (max frequency within 80% of the fastest core). */
+    static int bigCores() {
+        int n = Runtime.getRuntime().availableProcessors();
+        long[] f = new long[n]; long max = 0;
+        for (int i = 0; i < n; i++) {
+            try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader("/sys/devices/system/cpu/cpu" + i + "/cpufreq/cpuinfo_max_freq"))) {
+                f[i] = Long.parseLong(r.readLine().trim());
+            } catch (Exception e) { f[i] = 0; }
+            max = Math.max(max, f[i]);
+        }
+        if (max == 0) return Math.max(2, Math.min(4, n));
+        int big = 0;
+        for (long v : f) if (v >= max * 0.8) big++;
+        return Math.max(2, Math.min(big, 4));
     }
 
     private void checkCancel() throws InterruptedException {

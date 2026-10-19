@@ -19,6 +19,12 @@ public final class Separator {
         void write(int stem, float[][] planar, int off, int n) throws IOException;
     }
 
+    /** True when the whole chunk is practically silent (below -84 dBFS): no need to run the network. */
+    static boolean silent(float[][] part, int n) {
+        for (int c = 0; c < 2; c++) for (int i = 0; i < n; i++) if (Math.abs(part[c][i]) > 6e-5f) return false;
+        return true;
+    }
+
     // ------------------------------------------------------------------ stage 1
     public static final int S1_NFFT = 4096, S1_HOP = 1024, S1_DIMF = 2048, S1_DIMT = 128;
 
@@ -52,13 +58,18 @@ public final class Separator {
             if (actual < chunk) { Arrays.fill(part[0], actual, chunk, 0f); Arrays.fill(part[1], actual, chunk, 0f); }
             if (scale != 1f) for (int c = 0; c < 2; c++) for (int i = 0; i < chunk; i++) part[c][i] *= scale;
 
-            float[] spec = stft.forward(part);
             int frames = S1_DIMT;
-            for (int c4 = 0; c4 < 4; c4++)              // zero first 3 bins
-                for (int f = 0; f < 3; f++)
-                    Arrays.fill(spec, (c4 * S1_DIMF + f) * frames, (c4 * S1_DIMF + f) * frames + frames, 0f);
-            float[] pred = model.run(spec);
-            float[][] wav = stft.inverse(pred, 0, frames);
+            float[][] wav;
+            if (silent(part, chunk)) {
+                wav = new float[2][chunk];
+            } else {
+                float[] spec = stft.forward(part);
+                for (int c4 = 0; c4 < 4; c4++)              // zero first 3 bins
+                    for (int f = 0; f < 3; f++)
+                        Arrays.fill(spec, (c4 * S1_DIMF + f) * frames, (c4 * S1_DIMF + f) * frames + frames, 0f);
+                float[] pred = model.run(spec);
+                wav = stft.inverse(pred, 0, frames);
+            }
 
             // symmetric Hann (numpy.hanning) over the actual chunk length
             for (int i = 0; i < actual; i++) {
@@ -135,12 +146,14 @@ public final class Separator {
         for (int ci = 0; ci < nChunks; ci++) {
             long s = (long) ci * hop;                    // start in padded coordinates
             drums.read(s - lead, chunk, part);           // padded[p] = drums[p - lead]
-            float[] spec = stft.forward(part);
-            float[] pred = model.run(spec);              // 24 x dimF x frames
-            for (int k = 0; k < 6; k++) {
-                float[][] wav = stft.inverse(pred, k * stemStride, frames);
-                for (int c = 0; c < 2; c++)
-                    for (int i = 0; i < chunk; i++) acc[k][c][i] += wav[c][i] * w[i];
+            if (!silent(part, chunk)) {
+                float[] spec = stft.forward(part);
+                float[] pred = model.run(spec);          // 24 x dimF x frames
+                for (int k = 0; k < 6; k++) {
+                    float[][] wav = stft.inverse(pred, k * stemStride, frames);
+                    for (int c = 0; c < 2; c++)
+                        for (int i = 0; i < chunk; i++) acc[k][c][i] += wav[c][i] * w[i];
+                }
             }
             for (int i = 0; i < chunk; i++) wsum[i] += w[i];
             boolean last = ci == nChunks - 1;
