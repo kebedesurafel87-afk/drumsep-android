@@ -14,7 +14,7 @@ jobs:
         id: chk
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
-          if gh release view models --json assets -q '.assets[].name' 2>/dev/null | grep -q '^drumsep_mdx23c.onnx$'; then
+          if gh release view models --json assets -q '.assets[].name' 2>/dev/null | grep -q '^drumsep_w8.onnx$'; then
             echo "have=true" >> $GITHUB_OUTPUT; else echo "have=false" >> $GITHUB_OUTPUT; fi
       - uses: actions/setup-python@v5
         if: steps.chk.outputs.have == 'false'
@@ -28,12 +28,16 @@ jobs:
           curl -sSL -o drumsep.ckpt $P/MDX23C-DrumSep-aufr33-jarredou.ckpt
           curl -sSL -o drumsep.yaml $P/config_drumsep_mdx23c.yaml
           python tools/export_drumsep.py drumsep.ckpt drumsep.yaml drumsep_mdx23c.onnx
+          curl -sSL -o kuielab_b_drums.onnx https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/kuielab_b_drums.onnx
+          python tools/compress_weights.py drumsep_mdx23c.onnx drumsep_w8.onnx
+          python tools/compress_weights.py kuielab_b_drums.onnx kuielab_w8.onnx
+          ls -l *.onnx
       - name: Publish model release
         if: steps.chk.outputs.have == 'false'
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
-          gh release create models --title "AI models" --notes "Converted DrumSep model used by the app" drumsep_mdx23c.onnx \
-            || gh release upload models drumsep_mdx23c.onnx --clobber
+          gh release create models --title "DrumSep tools" --notes "Compressed separation networks used by the app" drumsep_w8.onnx kuielab_w8.onnx \
+            || gh release upload models drumsep_w8.onnx kuielab_w8.onnx --clobber
 
   apk:
     name: Build APK

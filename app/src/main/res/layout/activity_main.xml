@@ -16,11 +16,11 @@
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="vertical" android:background="@drawable/card_bg" android:padding="14dp" android:layout_marginBottom="12dp">
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="AI models (one-time download, 440 MB)" android:textColor="@color/text" android:textStyle="bold"/>
+            android:text="DrumSep tools (one-time download, 110 MB)" android:textColor="@color/text" android:textStyle="bold"/>
         <TextView android:id="@+id/modelStatus" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:textColor="@color/muted" android:textSize="13sp" android:layout_marginTop="4dp"/>
         <Button android:id="@+id/btnDownload" android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="Download models" android:layout_marginTop="8dp"/>
+            android:text="Download tools" android:layout_marginTop="8dp"/>
     </LinearLayout>
 
     <!-- song -->
@@ -34,7 +34,27 @@
             <RadioButton android:id="@+id/qFast" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
                 android:text="Fast" android:checked="true" android:textColor="@color/text"/>
             <RadioButton android:id="@+id/qBest" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
-                android:text="Best (2× slower)" android:textColor="@color/text"/>
+                android:text="Best (4× slower)" android:textColor="@color/text"/>
+        </RadioGroup>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Heat / speed"
+            android:textColor="@color/muted" android:textSize="12sp" android:layout_marginTop="6dp"/>
+        <RadioGroup android:id="@+id/speed" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <RadioButton android:id="@+id/sCool" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="Cool" android:checked="true" android:textColor="@color/text"/>
+            <RadioButton android:id="@+id/sNormal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="Normal" android:textColor="@color/text"/>
+            <RadioButton android:id="@+id/sMax" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="Max" android:textColor="@color/text"/>
+        </RadioGroup>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Engine (try which one is fastest on your phone)"
+            android:textColor="@color/muted" android:textSize="12sp" android:layout_marginTop="6dp"/>
+        <RadioGroup android:id="@+id/engine" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <RadioButton android:id="@+id/eCpu" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="CPU" android:checked="true" android:textColor="@color/text"/>
+            <RadioButton android:id="@+id/eXnn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="XNNPACK" android:textColor="@color/text"/>
+            <RadioButton android:id="@+id/eNpu" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="NPU / GPU" android:textColor="@color/text"/>
         </RadioGroup>
         <CheckBox android:id="@+id/drumsOnly" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="The file is already a drum track (skip stage 1)" android:textColor="@color/muted" android:textSize="13sp"/>
@@ -68,7 +88,7 @@
     </LinearLayout>
 
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="A 4-minute song takes about 5–15 minutes depending on the phone. You can leave the app; it keeps working in the background."
+        android:text="Cool = less heat, slower. Max = fastest, phone gets warm. The app pauses by itself if the phone gets too hot. You can leave the app; it keeps working in the background."
         android:textColor="@color/muted" android:textSize="12sp" android:layout_marginTop="14dp"/>
 </LinearLayout>
 </ScrollView>

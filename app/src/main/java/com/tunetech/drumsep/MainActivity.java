@@ -27,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar bar;
     private View progressCard, resultCard;
     private LinearLayout stemList;
-    private RadioButton qBest;
+    private RadioButton qBest, sCool, sMax, eXnn, eNpu;
     private CheckBox drumsOnly;
 
     private Uri songUri;
@@ -50,7 +50,8 @@ public class MainActivity extends AppCompatActivity {
         btnDownload = findViewById(R.id.btnDownload); btnPick = findViewById(R.id.btnPick);
         btnStart = findViewById(R.id.btnStart); btnCancel = findViewById(R.id.btnCancel);
         bar = findViewById(R.id.bar); progressCard = findViewById(R.id.progressCard); resultCard = findViewById(R.id.resultCard);
-        stemList = findViewById(R.id.stemList); qBest = findViewById(R.id.qBest); drumsOnly = findViewById(R.id.drumsOnly);
+        stemList = findViewById(R.id.stemList); qBest = findViewById(R.id.qBest); sCool = findViewById(R.id.sCool); sMax = findViewById(R.id.sMax); eXnn = findViewById(R.id.eXnn); eNpu = findViewById(R.id.eNpu);
+        restoreSettings(); drumsOnly = findViewById(R.id.drumsOnly);
 
         btnPick.setOnClickListener(v -> picker.launch(new String[]{"audio/*"}));
         btnDownload.setOnClickListener(v -> startJob(true));
@@ -118,9 +119,28 @@ public class MainActivity extends AppCompatActivity {
         i.putExtra(SeparationService.EXTRA_NAME, songDisplay);
         i.putExtra(SeparationService.EXTRA_OVERLAP, qBest.isChecked() ? 4 : 2);
         i.putExtra(SeparationService.EXTRA_DRUMS_ONLY, drumsOnly.isChecked());
+        i.putExtra(SeparationService.EXTRA_SPEED, sCool.isChecked() ? 0 : sMax.isChecked() ? 2 : 1);
+        i.putExtra(SeparationService.EXTRA_ENGINE, eXnn.isChecked() ? 1 : eNpu.isChecked() ? 2 : 0);
+        saveSettings();
         stopPlayback();
         ContextCompat.startForegroundService(this, i);
         renderedStems = -1;
+    }
+
+    private void saveSettings() {
+        getSharedPreferences("drumsep", MODE_PRIVATE).edit()
+                .putBoolean("best", qBest.isChecked())
+                .putInt("speed", sCool.isChecked() ? 0 : sMax.isChecked() ? 2 : 1)
+                .putInt("engine", eXnn.isChecked() ? 1 : eNpu.isChecked() ? 2 : 0).apply();
+    }
+
+    private void restoreSettings() {
+        android.content.SharedPreferences p = getSharedPreferences("drumsep", MODE_PRIVATE);
+        ((RadioButton) findViewById(p.getBoolean("best", false) ? R.id.qBest : R.id.qFast)).setChecked(true);
+        int sp = p.getInt("speed", 0);
+        ((RadioButton) findViewById(sp == 0 ? R.id.sCool : sp == 2 ? R.id.sMax : R.id.sNormal)).setChecked(true);
+        int en = p.getInt("engine", 0);
+        ((RadioButton) findViewById(en == 1 ? R.id.eXnn : en == 2 ? R.id.eNpu : R.id.eCpu)).setChecked(true);
     }
 
     private final Runnable ticker = new Runnable() {
@@ -137,12 +157,12 @@ public class MainActivity extends AppCompatActivity {
         boolean busy = st.isBusy();
         long have = 0, total = 0;
         for (ModelManager.Model m : ModelManager.ALL) { total += m.bytes; if (ModelManager.isReady(this, m)) have += m.bytes; }
-        modelStatus.setText(ready ? "✓ Models installed" : (have >> 20) + " / " + (total >> 20) + " MB installed");
+        modelStatus.setText(ready ? "✓ Tools installed" : (have >> 20) + " / " + (total >> 20) + " MB installed");
         btnDownload.setVisibility(ready ? View.GONE : View.VISIBLE);
         btnDownload.setEnabled(!busy);
         btnPick.setEnabled(!busy);
         btnStart.setEnabled(!busy && songUri != null);
-        btnStart.setText(ready ? "Separate drum parts" : "Download models + separate");
+        btnStart.setText(ready ? "Separate drum parts" : "Download tools + separate");
 
         boolean showProgress = busy || st.phase == JobState.Phase.ERROR || st.phase == JobState.Phase.CANCELLED;
         progressCard.setVisibility(showProgress ? View.VISIBLE : View.GONE);

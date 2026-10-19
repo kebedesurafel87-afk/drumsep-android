@@ -28,7 +28,9 @@ import java.io.OutputStream;
 
 /** Foreground service: download models (if needed) → decode → stage 1 → stage 2 → save WAVs. */
 public final class SeparationService extends Service {
-    public static final String EXTRA_URI = "uri", EXTRA_NAME = "name", EXTRA_OVERLAP = "overlap", EXTRA_DRUMS_ONLY = "drumsOnly";
+    public static final String EXTRA_URI = "uri", EXTRA_NAME = "name", EXTRA_OVERLAP = "overlap", EXTRA_DRUMS_ONLY = "drumsOnly", EXTRA_SPEED = "speed", EXTRA_ENGINE = "engine";
+    /** 0 = cool (least heat), 1 = normal, 2 = max */
+    private int speedMode = 1;
     public static final String ACTION_CANCEL = "com.tunetech.drumsep.CANCEL";
     private static final String CH = "drumsep_progress";
     private static final int NOTIF = 1;
@@ -53,18 +55,20 @@ public final class SeparationService extends Service {
         String name = intent.getStringExtra(EXTRA_NAME);
         int overlap = intent.getIntExtra(EXTRA_OVERLAP, 2);
         boolean drumsOnly = intent.getBooleanExtra(EXTRA_DRUMS_ONLY, false);
+        speedMode = intent.getIntExtra(EXTRA_SPEED, 1);
+        int engine = intent.getIntExtra(EXTRA_ENGINE, 0);
         st.reset(name);
         st.phase = JobState.Phase.DOWNLOADING;
         startForegroundCompat("Starting…");
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "drumsep:work");
         wakeLock.acquire(3 * 60 * 60 * 1000L);
-        worker = new Thread(() -> run(uri, name, overlap, drumsOnly), "drumsep-worker");
+        worker = new Thread(() -> run(uri, name, overlap, drumsOnly, engine), "drumsep-worker");
         worker.start();
         return START_NOT_STICKY;
     }
 
-    private void run(Uri uri, String name, int overlap, boolean drumsOnly) {
+    private void run(Uri uri, String name, int overlap, boolean drumsOnly, int engine) {
         JobState st = JobState.get();
         File cache = new File(getCacheDir(), "work");
         cache.mkdirs();
@@ -94,7 +98,8 @@ public final class SeparationService extends Service {
                 st.percent = (int) (f * 100); return !st.cancelRequested;
             });
             long frames = mix.frames();
-            int threads = Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors()));
+            int cores = Runtime.getRuntime().availableProcessors();
+            int threads = speedMode == 0 ? Math.min(2, cores) : speedMode == 1 ? Math.max(2, Math.min(4, cores)) : Math.max(2, cores);
 
             // 3. stage 1
             FloatTrack drums;
@@ -107,8 +112,9 @@ public final class SeparationService extends Service {
                 FloatTrack drumsOut = FloatTrack.create(drumsF);
                 long t1 = System.currentTimeMillis();
                 try (OnnxRunner m1 = new OnnxRunner(ModelManager.file(this, ModelManager.DRUMS).getPath(),
-                        new long[]{1, 4, Separator.S1_DIMF, Separator.S1_DIMT}, threads)) {
-                    Separator.stage1(mix, drumsOut, m1, (d, t) -> progress(st, "Stage 1 / 2 · drums from song", d, t, t1));
+                        new long[]{1, 4, Separator.S1_DIMF, Separator.S1_DIMT}, threads, engine)) {
+                    final String lbl = "Stage 1 / 2 · drums from song · " + m1.engineUsed;
+                    Separator.stage1(mix, drumsOut, m1, (d, t) -> progress(st, lbl, d, t, t1));
                 }
                 drumsOut.close();
                 mix.close();
@@ -124,10 +130,13 @@ public final class SeparationService extends Service {
             Output[] outs = new Output[6];
             for (int k = 0; k < 6; k++) outs[k] = openOutput(folder, Separator.STEMS[k] + ".wav", frames);
             long t2 = System.currentTimeMillis();
+            int hop = overlap >= 4 ? Separator.BEST_HOP : Separator.FAST_HOP;
+            int xf = overlap >= 4 ? Separator.BEST_XFADE : Separator.FAST_XFADE;
             try (OnnxRunner m2 = new OnnxRunner(ModelManager.file(this, ModelManager.DRUMSEP).getPath(),
-                    new long[]{1, 4, Separator.S2_DIMF, Separator.S2_DIMT}, threads)) {
-                Separator.stage2(drums, overlap, m2, (k, pl, off, n) -> outs[k].w.write(pl, off, n),
-                        (d, t) -> progress(st, "Stage 2 / 2 · splitting the drum kit", d, t, t2));
+                    new long[]{1, 4, Separator.S2_DIMF, Separator.S2_DIMT}, threads, engine)) {
+                final String lbl = "Stage 2 / 2 · splitting the drum kit · " + m2.engineUsed;
+                Separator.stage2(drums, hop, xf, m2, (k, pl, off, n) -> outs[k].w.write(pl, off, n),
+                        (d, t) -> progress(st, lbl, d, t, t2));
             } finally {
                 for (Output o : outs) if (o != null) try { o.w.close(); } catch (IOException ignored) {}
             }
@@ -167,12 +176,35 @@ public final class SeparationService extends Service {
     }
 
     private boolean progress(JobState st, String what, int d, int t, long t0) {
+        throttle(st, what);
         st.percent = d * 100 / t;
         long el = System.currentTimeMillis() - t0;
         st.etaSeconds = d > 0 ? (long) ((t - d) * (el / 1000.0) / d) : -1;
         st.detail = what + "  (" + d + " / " + t + ")";
         if (d % 3 == 0 || d == t) notify(what + " " + st.percent + "%", st.percent);
         return !st.cancelRequested;
+    }
+
+    /**
+     * Heat control. Reads the phone's thermal status (Android 10+) and pauses while it is
+     * SEVERE or worse (MODERATE or worse in cool mode). In cool mode it also rests a little
+     * after every chunk so the CPU never runs flat-out.
+     */
+    private void throttle(JobState st, String what) {
+        try {
+            if (speedMode == 0) Thread.sleep(400);
+            if (Build.VERSION.SDK_INT < 29) return;
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            int limit = speedMode == 0 ? PowerManager.THERMAL_STATUS_MODERATE : PowerManager.THERMAL_STATUS_SEVERE;
+            if (speedMode == 2) limit = PowerManager.THERMAL_STATUS_CRITICAL;
+            boolean paused = false;
+            while (pm.getCurrentThermalStatus() >= limit && !st.cancelRequested) {
+                if (!paused) { paused = true; st.detail = "Phone is hot — pausing to cool down…"; notify(st.detail, st.percent); }
+                Thread.sleep(5000);
+            }
+            if (paused) st.detail = what;
+        } catch (InterruptedException ignored) {
+        } catch (Exception ignored) {}
     }
 
     private void checkCancel() throws InterruptedException {

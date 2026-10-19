@@ -95,20 +95,39 @@ public final class Separator {
 
     // ------------------------------------------------------------------ stage 2
     public static final int S2_NFFT = 2048, S2_HOP = 512, S2_DIMF = 1024, S2_DIMT = 256;
+    public static final int S2_CHUNK = S2_HOP * (S2_DIMT - 1);   // 130560 samples (2.96 s)
 
-    public static void stage2(FloatTrack drums, int overlap, ModelRunner model, StemSink sink, Progress progress) throws Exception {
-        final int chunk = S2_HOP * (S2_DIMT - 1);       // 130560
-        final int hop = chunk / overlap;
+    /** Best quality: 4 overlapping passes, plain average (identical to audio-separator overlap=4). */
+    public static final int BEST_HOP = S2_CHUNK / 4, BEST_XFADE = 0;
+    /** Fast: ~1 pass with a 0.19 s raised-cosine crossfade between chunks. */
+    public static final int FAST_HOP = S2_CHUNK - 8192, FAST_XFADE = 8192;
+
+    /**
+     * Window-weighted overlap-add. hop = distance between chunk starts, xfade = length of the
+     * raised-cosine ramps at both ends of each chunk's weight window (0 = flat window).
+     */
+    public static void stage2(FloatTrack drums, int hop, int xfade, ModelRunner model, StemSink sink, Progress progress) throws Exception {
+        final int chunk = S2_CHUNK;
+        if (hop <= 0 || hop > chunk) throw new IllegalArgumentException("hop");
         final long L = drums.frames();
         final int pad = (int) (hop - Math.floorMod(L - chunk, (long) hop));
         final long lead = chunk - hop;                   // zeros before the song
         final long total = lead + L + pad + lead;        // padded length
-        final int nChunks = (int) ((total - chunk) / hop) + 1;
+        final int nChunks = (int) ((total - chunk + hop - 1) / hop) + 1;
+
+        float[] w = new float[chunk];
+        Arrays.fill(w, 1f);
+        for (int i = 0; i < xfade; i++) {
+            float r = (float) (0.5 - 0.5 * Math.cos(Math.PI * i / xfade));
+            w[i] = r;
+            w[chunk - 1 - i] = r;
+        }
 
         Stft stft = new Stft(S2_NFFT, S2_HOP, S2_DIMF);
         float[][] part = new float[2][chunk];
         float[][][] acc = new float[6][2][chunk];
-        float[][] flush = new float[2][hop];
+        float[] wsum = new float[chunk];
+        float[][] flush = new float[2][chunk];
         int frames = S2_DIMT;
         int stemStride = 4 * S2_DIMF * frames;
         long[] written = new long[6];
@@ -121,15 +140,20 @@ public final class Separator {
             for (int k = 0; k < 6; k++) {
                 float[][] wav = stft.inverse(pred, k * stemStride, frames);
                 for (int c = 0; c < 2; c++)
-                    for (int i = 0; i < chunk; i++) acc[k][c][i] += wav[c][i];
+                    for (int i = 0; i < chunk; i++) acc[k][c][i] += wav[c][i] * w[i];
             }
-            // padded indices [s, s+hop) are final
-            long from = Math.max(s, lead), to = Math.min(s + hop, lead + L);
+            for (int i = 0; i < chunk; i++) wsum[i] += w[i];
+            boolean last = ci == nChunks - 1;
+            int nFinal = last ? chunk : hop;             // padded indices [s, s+nFinal) are final
+            long from = Math.max(s, lead), to = Math.min(s + nFinal, lead + L);
             for (int k = 0; k < 6; k++) {
                 if (to > from) {
                     int off = (int) (from - s), n = (int) (to - from);
                     for (int c = 0; c < 2; c++)
-                        for (int i = 0; i < n; i++) flush[c][i] = acc[k][c][off + i] / overlap;
+                        for (int i = 0; i < n; i++) {
+                            float ws = wsum[off + i];
+                            flush[c][i] = ws > 1e-6f ? acc[k][c][off + i] / ws : 0f;
+                        }
                     sink.write(k, flush, 0, n);
                     written[k] += n;
                 }
@@ -138,6 +162,8 @@ public final class Separator {
                     Arrays.fill(acc[k][c], chunk - hop, chunk, 0f);
                 }
             }
+            System.arraycopy(wsum, hop, wsum, 0, chunk - hop);
+            Arrays.fill(wsum, chunk - hop, chunk, 0f);
             if (progress != null && !progress.onProgress(ci + 1, nChunks)) throw new InterruptedException("cancelled");
         }
         for (int k = 0; k < 6; k++)

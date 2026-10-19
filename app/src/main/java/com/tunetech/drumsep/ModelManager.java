@@ -9,7 +9,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-/** Downloads the two neural-network files once and keeps them in the app's private storage. */
+/** Downloads the two separation tools (compressed neural networks) once into the app's private storage. */
 public final class ModelManager {
 
     /** Change this if you host the models somewhere else. */
@@ -20,17 +20,23 @@ public final class ModelManager {
         Model(String file, String url, long bytes, String title) { this.file = file; this.url = url; this.bytes = bytes; this.title = title; }
     }
 
-    public static final Model DRUMS = new Model("kuielab_b_drums.onnx",
-            "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/kuielab_b_drums.onnx",
-            21930313L, "Model 1 · drums from song (21 MB)");
-    public static final Model DRUMSEP = new Model("drumsep_mdx23c.onnx",
-            MODELS_BASE + "/drumsep_mdx23c.onnx",
-            437703505L, "Model 2 · drum parts (418 MB)");
+    public static final Model DRUMS = new Model("kuielab_w8.onnx",
+            MODELS_BASE + "/kuielab_w8.onnx",
+            5606289L, "tool 1 · drums from song (5 MB)");
+    public static final Model DRUMSEP = new Model("drumsep_w8.onnx",
+            MODELS_BASE + "/drumsep_w8.onnx",
+            110073767L, "tool 2 · drum parts (105 MB)");
     public static final Model[] ALL = {DRUMS, DRUMSEP};
 
     public interface Listener { boolean onProgress(Model m, long done, long total); }
 
-    public static File dir(Context c) { File d = new File(c.getFilesDir(), "models"); d.mkdirs(); return d; }
+    public static File dir(Context c) {
+        File d = new File(c.getFilesDir(), "models"); d.mkdirs();
+        // remove the old, uncompressed 440 MB files from version 1.0
+        for (String old : new String[]{"kuielab_b_drums.onnx", "drumsep_mdx23c.onnx", "kuielab_b_drums.onnx.part", "drumsep_mdx23c.onnx.part"})
+            new File(d, old).delete();
+        return d;
+    }
     public static File file(Context c, Model m) { return new File(dir(c), m.file); }
     public static boolean isReady(Context c, Model m) { File f = file(c, m); return f.exists() && f.length() == m.bytes; }
     public static boolean allReady(Context c) { for (Model m : ALL) if (!isReady(c, m)) return false; return true; }
