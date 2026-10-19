@@ -13,8 +13,18 @@ android {
         buildConfigField "String", "MODELS_BASE", "\"" + (project.findProperty("modelsBase") ?: "https://github.com/kebedesurafel87-afk/drumsep-android/releases/download/models") + "\""
     }
     buildFeatures { buildConfig true }
+    signingConfigs {
+        // Permanent key so every update installs over the previous version.
+        // Override with env KEYSTORE_FILE / KEYSTORE_PASSWORD for a private key.
+        release {
+            storeFile file(System.getenv("KEYSTORE_FILE") ?: "../keystore/drumsep.jks")
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "caaf2b4d49b3ec3c2653fa72c959c279"
+            keyAlias "drumsep"
+            keyPassword System.getenv("KEYSTORE_PASSWORD") ?: "caaf2b4d49b3ec3c2653fa72c959c279"
+        }
+    }
     buildTypes {
-        release { minifyEnabled false; signingConfig signingConfigs.debug }
+        release { minifyEnabled false; signingConfig signingConfigs.release }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     packagingOptions { jniLibs { useLegacyPackaging = false } }
