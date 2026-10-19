@@ -51,7 +51,11 @@ public class MainActivity extends AppCompatActivity {
         btnStart = findViewById(R.id.btnStart); btnCancel = findViewById(R.id.btnCancel);
         bar = findViewById(R.id.bar); progressCard = findViewById(R.id.progressCard); resultCard = findViewById(R.id.resultCard);
         stemList = findViewById(R.id.stemList); qBest = findViewById(R.id.qBest); sCool = findViewById(R.id.sCool); sMax = findViewById(R.id.sMax); eXnn = findViewById(R.id.eXnn); eNpu = findViewById(R.id.eNpu);
-        restoreSettings(); drumsOnly = findViewById(R.id.drumsOnly);
+        restoreSettings();
+        int year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+        String ver = "";
+        try { ver = "  ·  v" + getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) {}
+        ((TextView) findViewById(R.id.footer)).setText("Developed by Surafel Kebede" + ver + "\n© " + Math.max(2026, year) + " Surafel Kebede. All rights reserved."); drumsOnly = findViewById(R.id.drumsOnly);
 
         btnPick.setOnClickListener(v -> picker.launch(new String[]{"audio/*"}));
         btnDownload.setOnClickListener(v -> startJob(true));

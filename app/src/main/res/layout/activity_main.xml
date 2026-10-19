@@ -90,5 +90,10 @@
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
         android:text="Cool = less heat, slower. Max = fastest, phone gets warm. The app pauses by itself if the phone gets too hot. You can leave the app; it keeps working in the background."
         android:textColor="@color/muted" android:textSize="12sp" android:layout_marginTop="14dp"/>
+
+    <TextView android:id="@+id/footer" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center" android:textColor="@color/muted" android:textSize="12sp"
+        android:layout_marginTop="22dp" android:layout_marginBottom="8dp"
+        android:text="Developed by Surafel Kebede\n© 2026 Surafel Kebede. All rights reserved."/>
 </LinearLayout>
 </ScrollView>

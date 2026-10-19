@@ -1,0 +1,8 @@
+Copyright (c) 2026 Surafel Kebede. All rights reserved.
+
+This software and its source code are the property of Surafel Kebede.
+No part may be copied, modified, distributed or used without written permission.
+
+Third-party components: ONNX Runtime (MIT, Microsoft); separation networks
+kuielab_b_drums (UVR project) and MDX23C-DrumSep (aufr33 & jarredou) under
+their own licenses.

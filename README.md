@@ -31,3 +31,7 @@ Both are stored with 8-bit weights (4× smaller, output within −40 dB of the o
 Fast mode processes each chunk once with a 0.19 s crossfade; Best mode averages 4 overlapping passes.
 
 Rim shots end up inside the snare file. Conga and other percussion are not split by any public model.
+
+## License
+
+Developed by Surafel Kebede. © 2026 Surafel Kebede. All rights reserved.
