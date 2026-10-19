@@ -18,7 +18,15 @@ public final class AudioDecoder {
 
     public interface Listener { boolean onProgress(float fraction); }
 
+    /** Facts about the decoded stream, filled in by decode(). */
+    public static final class Info { public String mime = "?"; public int sampleRate, channels, pcmEncoding; }
+
     public static FloatTrack decode(Context ctx, Uri uri, File out, Listener l) throws IOException {
+        return decode(ctx, uri, out, l, Long.MAX_VALUE, null);
+    }
+
+    /** @param maxFrames stop after this many output frames (for quick tests). */
+    public static FloatTrack decode(Context ctx, Uri uri, File out, Listener l, long maxFrames, Info inf) throws IOException {
         MediaExtractor ex = new MediaExtractor();
         ex.setDataSource(ctx, uri, null);
         int track = -1;
@@ -32,6 +40,8 @@ public final class AudioDecoder {
         ex.selectTrack(track);
         long durationUs = fmt.containsKey(MediaFormat.KEY_DURATION) ? fmt.getLong(MediaFormat.KEY_DURATION) : 0;
 
+        final Info meta = inf != null ? inf : new Info();
+        meta.mime = fmt.getString(MediaFormat.KEY_MIME);
         MediaCodec codec = MediaCodec.createDecoderByType(fmt.getString(MediaFormat.KEY_MIME));
         codec.configure(fmt, null, null, 0);
         codec.start();
@@ -40,6 +50,8 @@ public final class AudioDecoder {
         int srcRate = fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE);
         int srcCh = fmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
         int pcmEnc = 2; // 16-bit
+        if (fmt.containsKey(MediaFormat.KEY_PCM_ENCODING)) pcmEnc = fmt.getInteger(MediaFormat.KEY_PCM_ENCODING);
+        meta.sampleRate = srcRate; meta.channels = srcCh; meta.pcmEncoding = pcmEnc;
         Resampler rs = new Resampler(srcRate);
 
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
@@ -67,6 +79,7 @@ public final class AudioDecoder {
                     srcRate = of.getInteger(MediaFormat.KEY_SAMPLE_RATE);
                     srcCh = of.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
                     if (of.containsKey(MediaFormat.KEY_PCM_ENCODING)) pcmEnc = of.getInteger(MediaFormat.KEY_PCM_ENCODING);
+                    meta.sampleRate = srcRate; meta.channels = srcCh; meta.pcmEncoding = pcmEnc;
                     rs = new Resampler(srcRate);
                 } else if (ob >= 0) {
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) outDone = true;
@@ -96,6 +109,7 @@ public final class AudioDecoder {
                         rs.push(stereo, frames, ft);
                     }
                     codec.releaseOutputBuffer(ob, false);
+                    if (ft.frames() >= maxFrames) outDone = true;
                     if (l != null && durationUs > 0 && !l.onProgress(Math.min(1f, info.presentationTimeUs / (float) durationUs)))
                         throw new IOException("cancelled");
                 }

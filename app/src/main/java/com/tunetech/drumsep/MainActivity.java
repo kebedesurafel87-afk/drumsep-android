@@ -23,7 +23,8 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private TextView modelStatus, songName, stepText, etaText, resultTitle;
-    private Button btnDownload, btnPick, btnStart, btnCancel;
+    private Button btnDownload, btnPick, btnStart, btnCancel, btnTest;
+    private TextView testOut;
     private ProgressBar bar;
     private View progressCard, resultCard;
     private LinearLayout stemList;
@@ -48,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
         modelStatus = findViewById(R.id.modelStatus); songName = findViewById(R.id.songName);
         stepText = findViewById(R.id.stepText); etaText = findViewById(R.id.etaText); resultTitle = findViewById(R.id.resultTitle);
         btnDownload = findViewById(R.id.btnDownload); btnPick = findViewById(R.id.btnPick);
-        btnStart = findViewById(R.id.btnStart); btnCancel = findViewById(R.id.btnCancel);
+        btnStart = findViewById(R.id.btnStart); btnCancel = findViewById(R.id.btnCancel); btnTest = findViewById(R.id.btnTest); testOut = findViewById(R.id.testOut);
         bar = findViewById(R.id.bar); progressCard = findViewById(R.id.progressCard); resultCard = findViewById(R.id.resultCard);
         stemList = findViewById(R.id.stemList); qBest = findViewById(R.id.qBest); sCool = findViewById(R.id.sCool); sMax = findViewById(R.id.sMax); eXnn = findViewById(R.id.eXnn); eNpu = findViewById(R.id.eNpu);
         restoreSettings();
@@ -60,6 +61,12 @@ public class MainActivity extends AppCompatActivity {
         btnPick.setOnClickListener(v -> picker.launch(new String[]{"audio/*"}));
         btnDownload.setOnClickListener(v -> startJob(true));
         btnStart.setOnClickListener(v -> startJob(false));
+        btnTest.setOnClickListener(v -> runSelfTest());
+        testOut.setOnLongClickListener(v -> {
+            ((android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
+                    .setPrimaryClip(android.content.ClipData.newPlainText("DrumSep self-test", testOut.getText()));
+            Toast.makeText(this, "Report copied", Toast.LENGTH_SHORT).show(); return true;
+        });
         btnCancel.setOnClickListener(v -> startService(new Intent(this, SeparationService.class).setAction(SeparationService.ACTION_CANCEL)));
 
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
@@ -131,6 +138,19 @@ public class MainActivity extends AppCompatActivity {
         renderedStems = -1;
     }
 
+    private void runSelfTest() {
+        if (songUri == null) return;
+        int engine = eXnn.isChecked() ? 1 : eNpu.isChecked() ? 2 : 0;
+        btnTest.setEnabled(false);
+        testOut.setVisibility(View.VISIBLE);
+        testOut.setText("Running self-test (about 20–60 s)…");
+        Uri u = songUri;
+        new Thread(() -> {
+            String rep = SelfTest.run(this, u, engine);
+            runOnUiThread(() -> { testOut.setText(rep + "\n(long-press to copy)"); btnTest.setEnabled(true); });
+        }, "selftest").start();
+    }
+
     private void saveSettings() {
         getSharedPreferences("drumsep", MODE_PRIVATE).edit()
                 .putBoolean("best", qBest.isChecked())
@@ -166,6 +186,7 @@ public class MainActivity extends AppCompatActivity {
         btnDownload.setEnabled(!busy);
         btnPick.setEnabled(!busy);
         btnStart.setEnabled(!busy && songUri != null);
+        btnTest.setEnabled(!busy && songUri != null && ready);
         btnStart.setText(ready ? "Separate drum parts" : "Download tools + separate");
 
         boolean showProgress = busy || st.phase == JobState.Phase.ERROR || st.phase == JobState.Phase.CANCELLED;

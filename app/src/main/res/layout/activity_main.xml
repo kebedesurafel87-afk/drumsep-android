@@ -60,6 +60,11 @@
             android:text="The file is already a drum track (skip stage 1)" android:textColor="@color/muted" android:textSize="13sp"/>
         <Button android:id="@+id/btnStart" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="Separate drum parts" android:layout_marginTop="8dp" android:enabled="false"/>
+        <Button android:id="@+id/btnTest" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Self-test (20 s)" android:enabled="false" style="?attr/materialButtonOutlinedStyle"/>
+        <TextView android:id="@+id/testOut" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textColor="@color/muted" android:textSize="11sp" android:fontFamily="monospace" android:visibility="gone"
+            android:layout_marginTop="6dp" android:textIsSelectable="true"/>
     </LinearLayout>
 
     <!-- progress -->
